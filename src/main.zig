@@ -15,8 +15,14 @@ const vert_src: []const u8 =
     \\#version 330 core
     \\layout (location = 0) in vec3 a_pos;
     \\
+    \\vec3 offset[3] = vec3[](
+    \\     vec3(0.0, 0.1, 0.0),
+    \\     vec3(-0.1, -0.1, 0.0),
+    \\     vec3(0.1, -0.1, 0.0)
+    \\);
+    \\
     \\void main() {
-    \\    gl_Position = vec4(a_pos.x, a_pos.y, a_pos.z, 1.0);
+    \\    gl_Position = vec4(a_pos + offset[gl_VertexID], 1.0);
     \\}
 ;
 
@@ -49,6 +55,8 @@ pub fn main() void {
         return;
     }
 
+    c.glViewport(0, 0, 800, 600);
+
     var vao: c.GLuint = undefined;
     c.glGenVertexArrays(1, &vao);
 
@@ -74,6 +82,7 @@ pub fn main() void {
 
     c.glBindVertexArray(vao);
     c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), null);
+    c.glVertexAttribDivisor(0, 1);
     c.glEnableVertexAttribArray(0);
     c.glUseProgram(shader_program);
 
@@ -81,7 +90,7 @@ pub fn main() void {
         c.glfwPollEvents();
         c.glClearColor(0.0, 0.0, 0.0, 1.0);
         c.glClear(c.GL_COLOR_BUFFER_BIT);
-        c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
+        c.glDrawArraysInstanced(c.GL_TRIANGLES, 0, 3, 3);
         c.glfwSwapBuffers(window);
     }
 }
