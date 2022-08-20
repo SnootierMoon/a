@@ -1,3 +1,1 @@
-const glfw = @import("glfw.zig");
-
-pub const main = glfw.main;
+pub const main = @import("glfw.zig").main;
