@@ -49,13 +49,13 @@ const Platform = struct {
         errdefer c.glfwDestroyWindow(self.window);
 
         c.glfwSetWindowUserPointer(self.window, self);
-        _ = c.glfwSetErrorCallback(error_callback);
-        _ = c.glfwSetFramebufferSizeCallback(self.window, framebuffer_size_callback);
-        _ = c.glfwSetCursorPosCallback(self.window, cursor_pos_callback);
+        _ = c.glfwSetErrorCallback(errorCallback);
+        _ = c.glfwSetFramebufferSizeCallback(self.window, framebufferSizeCallback);
+        _ = c.glfwSetCursorPosCallback(self.window, cursorPosCallback);
         c.glfwSetInputMode(self.window, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
 
         c.glfwMakeContextCurrent(self.window);
-        if (c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, c.glfwGetProcAddress)) == 0) {
+        if (c.gladLoadGLLoader(@ptrCast(c.GLADloadproc, &c.glfwGetProcAddress)) == 0) {
             log.err("Failed to load OpenGL with GLAD", .{});
             return error.GladInitFailed;
         }
@@ -70,6 +70,8 @@ const Platform = struct {
         errdefer self.triangle.deinit();
 
         self.triangle_mvp = self.triangle.getUniform(m.Mat4, "mvp");
+
+        self.cursor_pos = null;
 
         self.camera = m.Camera{
             .fov_y = 1.57,
@@ -97,36 +99,36 @@ const Platform = struct {
             self.delta_time = self.current_time - current_time;
             self.current_time = current_time;
             c.glfwPollEvents();
-            self.process_input();
+            self.processInput();
             self.render();
         }
     }
 
-    fn process_input(self: *Platform) void {
+    fn processInput(self: *Platform) void {
         if (c.glfwGetKey(self.window, c.GLFW_KEY_ESCAPE) == c.GLFW_PRESS) {
             c.glfwSetWindowShouldClose(self.window, c.GLFW_TRUE);
         }
         var vel = m.zero(m.Vec3);
         if (c.glfwGetKey(self.window, c.GLFW_KEY_W) == c.GLFW_PRESS) {
-            vel[0] += 1;
+            vel[0] += 1.0;
         }
         if (c.glfwGetKey(self.window, c.GLFW_KEY_A) == c.GLFW_PRESS) {
-            vel[1] += 1;
+            vel[1] += 1.0;
         }
         if (c.glfwGetKey(self.window, c.GLFW_KEY_S) == c.GLFW_PRESS) {
-            vel[0] -= 1;
+            vel[0] -= 1.0;
         }
         if (c.glfwGetKey(self.window, c.GLFW_KEY_D) == c.GLFW_PRESS) {
-            vel[1] -= 1;
+            vel[1] -= 1.0;
         }
         if (c.glfwGetKey(self.window, c.GLFW_KEY_SPACE) == c.GLFW_PRESS) {
-            vel[2] += 1;
+            vel[2] += 1.0;
         }
         if (c.glfwGetKey(self.window, c.GLFW_KEY_LEFT_SHIFT) == c.GLFW_PRESS) {
-            vel[2] -= 1;
+            vel[2] -= 1.0;
         }
         vel *= @splat(3, self.delta_time * 2.0);
-        self.camera.pos += m.mul(self.camera.move_matrix(), vel);
+        self.camera.pos += m.mul(self.camera.moveMat(), vel);
     }
 
     fn render(self: *Platform) void {
@@ -136,36 +138,36 @@ const Platform = struct {
         self.triangle.use();
         c.glBindVertexArray(self.vao);
 
-        self.triangle_mvp.set(self.camera.draw_matrix());
+        self.triangle_mvp.set(self.camera.drawMat());
         c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
 
         c.glfwSwapBuffers(self.window);
     }
 
-    fn framebuffer_size_callback(window: ?*c.GLFWwindow, size_x: c_int, size_y: c_int) callconv(.C) void {
+    fn framebufferSizeCallback(window: ?*c.GLFWwindow, size_x: c_int, size_y: c_int) callconv(.C) void {
         const self = @ptrCast(*Platform, @alignCast(@alignOf(Platform), c.glfwGetWindowUserPointer(window)));
         c.glViewport(0, 0, @as(c.GLsizei, size_x), @as(c.GLsizei, size_y));
         self.camera.aspect_ratio = @intToFloat(f32, size_x) / @intToFloat(f32, size_y);
     }
 
-    fn cursor_pos_callback(window: ?*c.GLFWwindow, pos_x: f64, pos_y: f64) callconv(.C) void {
+    fn cursorPosCallback(window: ?*c.GLFWwindow, pos_x: f64, pos_y: f64) callconv(.C) void {
         const self = @ptrCast(*Platform, @alignCast(@alignOf(Platform), c.glfwGetWindowUserPointer(window)));
         const pos = m.Vec2{ @floatCast(f32, pos_x), @floatCast(f32, pos_y) };
         if (self.cursor_pos) |old_pos| {
             const rel = (pos - old_pos) * m.Vec2{ -0.01, -0.01 };
-            self.camera.yaw = @mod(self.camera.yaw + rel[0], std.math.tau);
-            self.camera.pitch = std.math.clamp(self.camera.pitch + rel[1], -std.math.pi, std.math.pi);
+            self.camera.yaw = self.camera.yaw + rel[0];
+            self.camera.pitch = self.camera.pitch + rel[1];
         }
         self.cursor_pos = pos;
     }
 
-    fn scroll_callback(window: ?*c.GLFWwindow, offset_x: f64, offset_y: f64) callconv(.C) void {
+    fn scrollCallback(window: ?*c.GLFWwindow, offset_x: f64, offset_y: f64) callconv(.C) void {
         _ = window;
         _ = offset_x;
         _ = offset_y;
     }
 
-    fn error_callback(err: c_int, description: [*c]const u8) callconv(.C) void {
+    fn errorCallback(err: c_int, description: [*c]const u8) callconv(.C) void {
         _ = err;
         if (description) |d| {
             log.err("{s}", .{d});
@@ -278,9 +280,9 @@ const Shader = struct {
 };
 
 fn getGlfwError() ?[]const u8 {
-    var description = @as([*c]u8, undefined);
+    var description = @as([*c]const u8, undefined);
     _ = c.glfwGetError(&description);
-    return if (description) |d| std.mem.span(d) else null;
+    return std.mem.span(description);
 }
 
 pub fn main() !void {

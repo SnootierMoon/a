@@ -117,7 +117,7 @@ pub const Camera = struct {
 
     const z_near = 0.1;
 
-    pub fn projection(self: Camera) Mat4 {
+    pub fn projectionMat(self: Camera) Mat4 {
         const scale_y = 1.0 / @tan(self.fov_y * 0.5);
         const scale_x = scale_y / self.aspect_ratio;
         return .{
@@ -128,7 +128,7 @@ pub const Camera = struct {
         };
     }
 
-    pub fn view(self: Camera) Mat4 {
+    pub fn viewMat(self: Camera) Mat4 {
         const cos_yaw = @cos(self.yaw);
         const sin_yaw = @sin(self.yaw);
         const cos_pitch = @cos(self.pitch);
@@ -144,11 +144,11 @@ pub const Camera = struct {
         };
     }
 
-    pub fn draw_matrix(self: Camera) Mat4 {
-        return mul(self.projection(), self.view());
+    pub fn drawMat(self: Camera) Mat4 {
+        return mul(self.projectionMat(), self.viewMat());
     }
 
-    pub fn move_matrix(self: Camera) Mat3 {
+    pub fn moveMat(self: Camera) Mat3 {
         const cos_yaw = @cos(self.yaw);
         const sin_yaw = @sin(self.yaw);
         return .{
