@@ -15,23 +15,23 @@ pub const ChunkIndex = packed struct {
 };
 
 pub const ChunkCoord = packed struct {
-    x: u27,
-    y: u27,
-    z: u27,
+    x: i27,
+    y: i27,
+    z: i27,
 
-    pub fn center(self: ChunkCoord) m.Vec3 {
+    pub fn center(self: ChunkCoord) m.DVec3 {
         return .{
-            @intToFloat(f32, self.x << 5 | 16),
-            @intToFloat(f32, self.y << 5 | 16),
-            @intToFloat(f32, self.z << 5 | 16),
+            @intToFloat(f64, self.x << 5 | 16),
+            @intToFloat(f64, self.y << 5 | 16),
+            @intToFloat(f64, self.z << 5 | 16),
         };
     }
 };
 
 pub const VoxelCoord = struct {
-    x: u32,
-    y: u32,
-    z: u32,
+    x: i32,
+    y: i32,
+    z: i32,
 
     pub fn fromChunkCoord(chunk_coord: ChunkCoord, chunk_index: ChunkIndex) VoxelCoord {
         return .{
@@ -57,15 +57,15 @@ pub const VoxelCoord = struct {
         };
     }
 
-    pub fn center(self: VoxelCoord) m.Vec3 {
+    pub fn center(self: VoxelCoord) m.DVec3 {
         return .{
-            @intToFloat(f32, self.x),
-            @intToFloat(f32, self.y),
-            @intToFloat(f32, self.z),
+            @intToFloat(f64, self.x),
+            @intToFloat(f64, self.y),
+            @intToFloat(f64, self.z),
         } + @splat(3, 0.5);
     }
 
-    pub fn dist(self: VoxelCoord, other: VoxelCoord) f32 {
+    pub fn dist(self: VoxelCoord, other: VoxelCoord) f64 {
         return m.length(self.center() - other.center());
     }
 };

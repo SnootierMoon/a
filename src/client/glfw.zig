@@ -1,5 +1,6 @@
 const std = @import("std");
 const m = @import("root").linmath;
+const Camera = @import("root").Camera;
 pub const c = @cImport({
     @cInclude("glad/glad.h");
     @cInclude("GLFW/glfw3.h");
@@ -23,7 +24,7 @@ pub const Platform = struct {
     current_time: f32,
     delta_time: f32,
 
-    camera: m.Camera,
+    camera: Camera,
 
     pub fn init(allocator: std.mem.Allocator) !*Platform {
         var self = try allocator.create(Platform);
@@ -71,12 +72,13 @@ pub const Platform = struct {
 
         self.cursor_pos = null;
 
-        self.camera = m.Camera{
+        self.camera = Camera{
             .fov_y = 1.57,
             .aspect_ratio = 800.0 / 600.0,
             .yaw = 0.0,
             .pitch = 0.0,
-            .pos = m.Vec3{ 0.0, 0.0, 0.0 },
+            .pos = .{ 0.0, 0.0, 0.0 },
+            .root = .{ .x = 0, .y = 0, .z = 0 },
         };
 
         return self;
@@ -125,8 +127,7 @@ pub const Platform = struct {
         if (c.glfwGetKey(self.window, c.GLFW_KEY_LEFT_SHIFT) == c.GLFW_PRESS) {
             vel[2] -= 1.0;
         }
-        vel *= @splat(3, self.delta_time * 2.0);
-        self.camera.pos += m.mul(self.camera.moveMat(), vel);
+        self.camera.move(m.scaleTo(vel, self.delta_time * 2.0));
     }
 
     fn render(self: *Platform) void {
@@ -136,7 +137,8 @@ pub const Platform = struct {
         self.triangle.use();
         c.glBindVertexArray(self.vao);
 
-        self.triangle_mvp.set(self.camera.drawMat());
+        self.camera.calcViewProj();
+        self.triangle_mvp.set(self.camera.mvp(.{ .x = 0, .y = 0, .z = 0 }));
         c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
 
         c.glfwSwapBuffers(self.window);

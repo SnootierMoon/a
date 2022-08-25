@@ -30,13 +30,29 @@ pub fn dot(lhs: anytype, rhs: @TypeOf(lhs)) f32 {
     return @reduce(.Add, lhs * rhs);
 }
 
+pub fn lengthSquared(vec: anytype) f32 {
+    return dot(vec, vec);
+}
+
 pub fn length(vec: anytype) f32 {
-    return @sqrt(dot(vec, vec));
+    return @sqrt(lengthSquared(vec));
+}
+
+pub fn scale(vec: anytype, scale_factor: f32) @TypeOf(vec) {
+    const dims = @typeInfo(@TypeOf(vec)).Vector.len;
+    return vec * @splat(dims, scale_factor);
+}
+
+pub fn scaleTo(vec: anytype, new_length: f32) @TypeOf(vec) {
+    const length_squared = lengthSquared(vec);
+    return if (length_squared == 0.0)
+        vec
+    else
+        scale(vec, new_length / @sqrt(length_squared));
 }
 
 pub fn normalize(vec: anytype) @TypeOf(vec) {
-    const dims = @typeInfo(@TypeOf(vec)).Vector.len;
-    return vec / @splat(dims, length(vec));
+    return scale(vec, 1.0 / length(vec));
 }
 
 pub fn transpose(mat: anytype) @TypeOf(mat) {
@@ -57,29 +73,29 @@ pub fn transpose(mat: anytype) @TypeOf(mat) {
 }
 
 pub fn MulType(comptime lhs: type, comptime rhs: type) type {
-    if (lhs == Mat3 and rhs == Vec3) {
-        return Vec3;
-    } else if (lhs == Mat4 and rhs == Vec4) {
-        return Vec4;
-    } else if (lhs == Mat3 and rhs == Mat3) {
-        return Mat3;
-    } else if (lhs == Mat4 and rhs == Mat4) {
-        return Mat4;
-    } else {
+    return if (lhs == Mat3 and rhs == Vec3)
+        Vec3
+    else if (lhs == Mat4 and rhs == Vec4)
+        Vec4
+    else if (lhs == Mat3 and rhs == Mat3)
+        Mat3
+    else if (lhs == Mat4 and rhs == Mat4)
+        Mat4
+    else
         @compileError("Unsupported types for MulType");
-    }
 }
 
 pub fn mul(lhs: anytype, rhs: anytype) MulType(@TypeOf(lhs), @TypeOf(rhs)) {
-    if (@TypeOf(lhs) == Mat3 and @TypeOf(rhs) == Vec3) {
-        return mat3.mulVec(lhs, rhs);
-    } else if (@TypeOf(lhs) == Mat3 and @TypeOf(rhs) == Mat3) {
-        return mat3.mulMat(lhs, rhs);
-    } else if (@TypeOf(lhs) == Mat4 and @TypeOf(rhs) == Vec4) {
-        return mat4.mulVec(lhs, rhs);
-    } else if (@TypeOf(lhs) == Mat4 and @TypeOf(rhs) == Mat4) {
-        return mat4.mulMat(lhs, rhs);
-    } else @compileError("Unsupported types for mul");
+    return if (@TypeOf(lhs) == Mat3 and @TypeOf(rhs) == Vec3)
+        mat3.mulVec(lhs, rhs)
+    else if (@TypeOf(lhs) == Mat3 and @TypeOf(rhs) == Mat3)
+        mat3.mulMat(lhs, rhs)
+    else if (@TypeOf(lhs) == Mat4 and @TypeOf(rhs) == Vec4)
+        mat4.mulVec(lhs, rhs)
+    else if (@TypeOf(lhs) == Mat4 and @TypeOf(rhs) == Mat4)
+        mat4.mulMat(lhs, rhs)
+    else
+        @compileError("Unsupported types for mul");
 }
 
 pub const mat3 = struct {
@@ -98,6 +114,36 @@ pub const mat3 = struct {
         ret[3..6].* = mulVec(t, lhs[3..6].*);
         ret[6..9].* = mulVec(t, lhs[6..9].*);
         return ret;
+    }
+
+    pub fn rotationXY(angle: f32) Mat3 {
+        const cos = @cos(angle);
+        const sin = @sin(angle);
+        return .{
+            cos, -sin, 0.0,
+            sin, cos,  0.0,
+            0.0, 0.0,  1.0,
+        };
+    }
+
+    pub fn rotationXZ(angle: f32) Mat3 {
+        const cos = @cos(angle);
+        const sin = @sin(angle);
+        return .{
+            cos,  0.0, sin,
+            0.0,  1.0, 0.0,
+            -sin, 0.0, cos,
+        };
+    }
+
+    pub fn rotationYZ(angle: f32) Mat3 {
+        const cos = @cos(angle);
+        const sin = @sin(angle);
+        return .{
+            1.0, 0.0, 0.0,
+            0.0, cos, -sin,
+            0.0, sin, cos,
+        };
     }
 };
 
@@ -149,30 +195,13 @@ pub const transform = struct {
             0.0,      0.0,      0.0,      1.0,
         };
     }
-};
 
-pub const Camera = struct {
-    fov_y: f32,
-    aspect_ratio: f32,
-    yaw: f32,
-    pitch: f32,
-    pos: Vec3,
-
-    const z_near = 0.1;
-
-    pub fn drawMat(self: Camera) Mat4 {
-        const projection = transform.perspective(z_near, self.fov_y, self.aspect_ratio);
-        const view = transform.look(self.pos, self.yaw, self.pitch);
-        return mat4.mulMat(projection, view);
-    }
-
-    pub fn moveMat(self: Camera) Mat3 {
-        const cos_yaw = @cos(self.yaw);
-        const sin_yaw = @sin(self.yaw);
+    pub fn translation(x: f32, y: f32, z: f32) Mat4 {
         return .{
-            cos_yaw, -sin_yaw, 0.0,
-            sin_yaw, cos_yaw,  0.0,
-            0.0,     0.0,      1.0,
+            1.0, 0.0, 0.0, x,
+            0.0, 1.0, 0.0, y,
+            0.0, 0.0, 1.0, z,
+            0.0, 0.0, 0.0, 1.0,
         };
     }
 };
