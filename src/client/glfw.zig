@@ -1,7 +1,5 @@
 const std = @import("std");
-
-const m = @import("linmath.zig");
-
+const m = @import("root").linmath;
 pub const c = @cImport({
     @cInclude("glad/glad.h");
     @cInclude("GLFW/glfw3.h");
@@ -12,7 +10,7 @@ pub const win_height = 600;
 
 const log = std.log.scoped(.glfw);
 
-const Platform = struct {
+pub const Platform = struct {
     allocator: std.mem.Allocator,
 
     window: *c.GLFWwindow,
@@ -84,7 +82,7 @@ const Platform = struct {
         return self;
     }
 
-    fn deinit(self: *const Platform) void {
+    pub fn deinit(self: *const Platform) void {
         self.triangle.deinit();
         c.glDeleteVertexArrays(1, &self.vao);
         c.glfwDestroyWindow(self.window);
@@ -92,7 +90,7 @@ const Platform = struct {
         self.allocator.destroy(self);
     }
 
-    fn run(self: *Platform) void {
+    pub fn run(self: *Platform) void {
         self.current_time = @floatCast(f32, c.glfwGetTime());
         while (c.glfwWindowShouldClose(self.window) == c.GLFW_FALSE) {
             const current_time = @floatCast(f32, c.glfwGetTime());
@@ -155,8 +153,8 @@ const Platform = struct {
         const pos = m.Vec2{ @floatCast(f32, pos_x), @floatCast(f32, pos_y) };
         if (self.cursor_pos) |old_pos| {
             const rel = (pos - old_pos) * m.Vec2{ -0.01, -0.01 };
-            self.camera.yaw = self.camera.yaw + rel[0];
-            self.camera.pitch = self.camera.pitch + rel[1];
+            self.camera.yaw = @mod(self.camera.yaw + rel[0], std.math.tau);
+            self.camera.pitch = std.math.clamp(self.camera.pitch + rel[1], -std.math.pi * 0.5, std.math.pi * 0.5);
         }
         self.cursor_pos = pos;
     }
@@ -283,14 +281,4 @@ fn getGlfwError() ?[]const u8 {
     var description = @as([*c]const u8, undefined);
     _ = c.glfwGetError(&description);
     return std.mem.span(description);
-}
-
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
-    var platform = try Platform.init(gpa.allocator());
-    defer platform.deinit();
-
-    platform.run();
 }

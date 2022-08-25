@@ -6,7 +6,7 @@ pub fn build(b: *std.build.Builder) void {
     const mode = b.standardReleaseOptions();
 
     const libs = Libs.init(b, target, mode);
-    const exe = b.addExecutable("poopoo", "src/main.zig");
+    const exe = b.addExecutable("main", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
     libs.link(exe);
