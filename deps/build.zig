@@ -82,58 +82,58 @@ pub fn link(self: @This(), x: *std.build.LibExeObjStep) void {
 
 const cflags = .{"-std=c99"};
 
-const glad_include = "libs/glad/include";
-const glad_sources = "libs/glad/src/glad.c";
+const glad_include = "deps/glad/include";
+const glad_sources = "deps/glad/src/glad.c";
 
-const glfw_include = "libs/glfw-3.3.8/include";
+const glfw_include = "deps/glfw-3.3.8/include";
 const glfw_sources_common = .{
-    "libs/glfw-3.3.8/src/egl_context.c",
-    "libs/glfw-3.3.8/src/osmesa_context.c",
-    "libs/glfw-3.3.8/src/context.c",
-    "libs/glfw-3.3.8/src/init.c",
-    "libs/glfw-3.3.8/src/input.c",
-    "libs/glfw-3.3.8/src/monitor.c",
-    "libs/glfw-3.3.8/src/window.c",
-    "libs/glfw-3.3.8/src/vulkan.c",
+    "deps/glfw-3.3.8/src/egl_context.c",
+    "deps/glfw-3.3.8/src/osmesa_context.c",
+    "deps/glfw-3.3.8/src/context.c",
+    "deps/glfw-3.3.8/src/init.c",
+    "deps/glfw-3.3.8/src/input.c",
+    "deps/glfw-3.3.8/src/monitor.c",
+    "deps/glfw-3.3.8/src/window.c",
+    "deps/glfw-3.3.8/src/vulkan.c",
 };
 
 const glfw_sources_linux_x11 = glfw_sources_common ++ .{
-    "libs/glfw-3.3.8/src/glx_context.c",
-    "libs/glfw-3.3.8/src/x11_init.c",
-    "libs/glfw-3.3.8/src/linux_joystick.c",
-    "libs/glfw-3.3.8/src/x11_monitor.c",
-    "libs/glfw-3.3.8/src/x11_window.c",
-    "libs/glfw-3.3.8/src/posix_time.c",
-    "libs/glfw-3.3.8/src/posix_thread.c",
-    "libs/glfw-3.3.8/src/xkb_unicode.c",
+    "deps/glfw-3.3.8/src/glx_context.c",
+    "deps/glfw-3.3.8/src/x11_init.c",
+    "deps/glfw-3.3.8/src/linux_joystick.c",
+    "deps/glfw-3.3.8/src/x11_monitor.c",
+    "deps/glfw-3.3.8/src/x11_window.c",
+    "deps/glfw-3.3.8/src/posix_time.c",
+    "deps/glfw-3.3.8/src/posix_thread.c",
+    "deps/glfw-3.3.8/src/xkb_unicode.c",
 };
 
 const glfw_sources_linux_wayland = glfw_sources_common ++ .{
-    "libs/glfw-3.3.8/src/wl_init.c",
-    "libs/glfw-3.3.8/src/linux_joystick.c",
-    "libs/glfw-3.3.8/src/wl_monitor.c",
-    "libs/glfw-3.3.8/src/wl_window.c",
-    "libs/glfw-3.3.8/src/posix_time.c",
-    "libs/glfw-3.3.8/src/posix_thread.c",
-    "libs/glfw-3.3.8/src/xkb_unicode.c",
+    "deps/glfw-3.3.8/src/wl_init.c",
+    "deps/glfw-3.3.8/src/linux_joystick.c",
+    "deps/glfw-3.3.8/src/wl_monitor.c",
+    "deps/glfw-3.3.8/src/wl_window.c",
+    "deps/glfw-3.3.8/src/posix_time.c",
+    "deps/glfw-3.3.8/src/posix_thread.c",
+    "deps/glfw-3.3.8/src/xkb_unicode.c",
 };
 
 const glfw_sources_windows_win32 = glfw_sources_common ++ .{
-    "libs/glfw-3.3.8/src/wgl_context.c",
-    "libs/glfw-3.3.8/src/win32_init.c",
-    "libs/glfw-3.3.8/src/win32_joystick.c",
-    "libs/glfw-3.3.8/src/win32_monitor.c",
-    "libs/glfw-3.3.8/src/win32_window.c",
-    "libs/glfw-3.3.8/src/win32_time.c",
-    "libs/glfw-3.3.8/src/win32_thread.c",
+    "deps/glfw-3.3.8/src/wgl_context.c",
+    "deps/glfw-3.3.8/src/win32_init.c",
+    "deps/glfw-3.3.8/src/win32_joystick.c",
+    "deps/glfw-3.3.8/src/win32_monitor.c",
+    "deps/glfw-3.3.8/src/win32_window.c",
+    "deps/glfw-3.3.8/src/win32_time.c",
+    "deps/glfw-3.3.8/src/win32_thread.c",
 };
 
 const glfw_sources_macos_cocoa = glfw_sources_common ++ .{
-    "libs/glfw-3.3.8/src/nsgl_context.m",
-    "libs/glfw-3.3.8/src/cocoa_init.m",
-    "libs/glfw-3.3.8/src/cocoa_joystick.m",
-    "libs/glfw-3.3.8/src/cocoa_monitor.m",
-    "libs/glfw-3.3.8/src/cocoa_window.m",
-    "libs/glfw-3.3.8/src/cocoa_time.c",
-    "libs/glfw-3.3.8/src/posix_thread.c",
+    "deps/glfw-3.3.8/src/nsgl_context.m",
+    "deps/glfw-3.3.8/src/cocoa_init.m",
+    "deps/glfw-3.3.8/src/cocoa_joystick.m",
+    "deps/glfw-3.3.8/src/cocoa_monitor.m",
+    "deps/glfw-3.3.8/src/cocoa_window.m",
+    "deps/glfw-3.3.8/src/cocoa_time.c",
+    "deps/glfw-3.3.8/src/posix_thread.c",
 };
