@@ -2,7 +2,7 @@ pub const Vec2 = @Vector(2, f32);
 pub const Vec3 = @Vector(3, f32);
 pub const Vec4 = @Vector(4, f32);
 
-pub const DVec3 = @Vector(3, f32);
+pub const DVec3 = @Vector(3, f64);
 
 pub const Mat3 = [9]f32;
 pub const Mat4 = [16]f32;

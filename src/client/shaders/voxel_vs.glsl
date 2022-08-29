@@ -1,13 +1,15 @@
 #version 330 core
 
-uvec2 positions[6] = uvec2[](
-    uvec2(1, 0),
-    uvec2(0, 0),
-    uvec2(0, 1),
-    uvec2(0, 1),
-    uvec2(1, 1),
-    uvec2(1, 0)
+vec2 positions[6] = vec2[](
+    vec2(1, 0),
+    vec2(0, 0),
+    vec2(0, 1),
+    vec2(0, 1),
+    vec2(1, 1),
+    vec2(1, 0)
 );
+
+uint pos = 1 + 2 + 3;
 
 uniform mat4 mvp;
 
