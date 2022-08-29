@@ -1,6 +1,7 @@
 const std = @import("std");
-const m = @import("root").linmath;
-const Camera = @import("root").Camera;
+const m = @import("../linmath.zig");
+const Camera = @import("../camera.zig").Camera;
+pub const cube_edges = @import("../voxel/mesh.zig").cube_edges;
 pub const c = @cImport({
     @cInclude("glad/glad.h");
     @cInclude("GLFW/glfw3.h");
@@ -8,6 +9,7 @@ pub const c = @cImport({
 
 pub const win_width = 800;
 pub const win_height = 600;
+pub const movement_speed = 10.0;
 
 const log = std.log.scoped(.glfw);
 
@@ -16,13 +18,19 @@ pub const Platform = struct {
 
     window: *c.GLFWwindow,
 
-    vao: c.GLuint,
-    triangle: Shader,
-    triangle_mvp: Shader.Uniform(m.Mat4),
+    voxel_shader: Shader,
+    voxel_vao: c.GLuint,
+    voxel_uniform_mvp: Shader.Uniform(m.Mat4),
 
     cursor_pos: ?m.Vec2,
     current_time: f32,
     delta_time: f32,
+
+    cube_mesh_shader: Shader,
+    cube_mesh_uniform_mvp: Shader.Uniform(m.Mat4),
+    cube_mesh_vao: c.GLuint,
+    cube_mesh_vbo: c.GLuint,
+    cube_mesh_ebo: c.GLuint,
 
     camera: Camera,
 
@@ -36,6 +44,7 @@ pub const Platform = struct {
             return error.GlfwInitFailed;
         }
         errdefer c.glfwTerminate();
+        _ = c.glfwSetErrorCallback(errorCallback);
 
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MAJOR, 3);
         c.glfwWindowHint(c.GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -48,8 +57,8 @@ pub const Platform = struct {
         errdefer c.glfwDestroyWindow(self.window);
 
         c.glfwSetWindowUserPointer(self.window, self);
-        _ = c.glfwSetErrorCallback(errorCallback);
         _ = c.glfwSetFramebufferSizeCallback(self.window, framebufferSizeCallback);
+        _ = c.glfwSetKeyCallback(self.window, keyCallback);
         _ = c.glfwSetCursorPosCallback(self.window, cursorPosCallback);
         c.glfwSetInputMode(self.window, c.GLFW_CURSOR, c.GLFW_CURSOR_DISABLED);
 
@@ -62,18 +71,37 @@ pub const Platform = struct {
         c.glEnable(c.GL_DEPTH_TEST);
         c.glEnable(c.GL_CULL_FACE);
 
-        c.glGenVertexArrays(1, &self.vao);
-        c.glBindVertexArray(self.vao);
+        var vaos = @as([2]c.GLuint, undefined);
+        c.glGenVertexArrays(vaos.len, &vaos);
+        errdefer c.glDeleteVertexArrays(vaos.len, &vaos);
 
-        self.triangle = try Shader.init(allocator, "triangle");
-        errdefer self.triangle.deinit();
+        var xbos = @as([2]c.GLuint, undefined);
+        c.glGenBuffers(xbos.len, &xbos);
+        errdefer c.glDeleteBuffers(xbos.len, &xbos);
 
-        self.triangle_mvp = self.triangle.getUniform(m.Mat4, "mvp");
+        self.voxel_shader = try Shader.init(allocator, "voxel");
+        errdefer self.voxel_shader.deinit();
+        self.voxel_vao = vaos[0];
+        self.voxel_uniform_mvp = self.voxel_shader.getUniform(m.Mat4, "mvp");
+
+        self.cube_mesh_shader = try Shader.init(allocator, "cube_mesh");
+        errdefer self.cube_mesh_shader.deinit();
+        self.cube_mesh_uniform_mvp = self.cube_mesh_shader.getUniform(m.Mat4, "mvp");
+        self.cube_mesh_vbo = xbos[0];
+        c.glBindBuffer(c.GL_ARRAY_BUFFER, self.cube_mesh_vbo);
+        c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cube_edges.verts)), &cube_edges.verts, c.GL_STATIC_DRAW);
+        self.cube_mesh_ebo = xbos[1];
+        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, self.cube_mesh_ebo);
+        c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, @sizeOf(@TypeOf(cube_edges.indices)), &cube_edges.indices, c.GL_STATIC_DRAW);
+        self.cube_mesh_vao = vaos[1];
+        c.glBindVertexArray(self.cube_mesh_vao);
+        c.glVertexAttribPointer(0, 3, c.GL_FLOAT, c.GL_FALSE, 3 * @sizeOf(f32), @intToPtr(?*anyopaque, 0));
+        c.glEnableVertexAttribArray(0);
 
         self.cursor_pos = null;
 
         self.camera = Camera{
-            .fov_y = 1.57,
+            .fov_y = 1.5,
             .aspect_ratio = 800.0 / 600.0,
             .yaw = 0.0,
             .pitch = 0.0,
@@ -85,8 +113,12 @@ pub const Platform = struct {
     }
 
     pub fn deinit(self: *const Platform) void {
-        self.triangle.deinit();
-        c.glDeleteVertexArrays(1, &self.vao);
+        const xbos = [_]c.GLuint{ self.cube_mesh_vbo, self.cube_mesh_ebo };
+        const vaos = [_]c.GLuint{ self.cube_mesh_vao, self.voxel_vao };
+        c.glDeleteBuffers(xbos.len, &xbos);
+        c.glDeleteVertexArrays(vaos.len, &vaos);
+        self.cube_mesh_shader.deinit();
+        self.voxel_shader.deinit();
         c.glfwDestroyWindow(self.window);
         c.glfwTerminate();
         self.allocator.destroy(self);
@@ -96,12 +128,34 @@ pub const Platform = struct {
         self.current_time = @floatCast(f32, c.glfwGetTime());
         while (c.glfwWindowShouldClose(self.window) == c.GLFW_FALSE) {
             const current_time = @floatCast(f32, c.glfwGetTime());
-            self.delta_time = self.current_time - current_time;
+            self.delta_time = current_time - self.current_time;
             self.current_time = current_time;
             c.glfwPollEvents();
             self.processInput();
             self.render();
         }
+    }
+
+    fn render(self: *Platform) void {
+        self.camera.calcViewProj();
+        c.glClearColor(0.0, 0.0, 0.0, 1.0);
+        c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
+
+        self.voxel_shader.use();
+        self.voxel_uniform_mvp.set(self.camera.mvp(.{ .x = 0, .y = 0, .z = 0 }));
+        c.glBindVertexArray(self.voxel_vao);
+        c.glBindBuffer(c.GL_ARRAY_BUFFER, 0);
+        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, 0);
+        c.glDrawArrays(c.GL_TRIANGLES, 0, 6);
+
+        self.cube_mesh_shader.use();
+        self.cube_mesh_uniform_mvp.set(self.camera.innerChunkMvp());
+        c.glBindVertexArray(self.cube_mesh_vao);
+        c.glBindBuffer(c.GL_ARRAY_BUFFER, self.cube_mesh_vbo);
+        c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, self.cube_mesh_ebo);
+        c.glDrawElements(c.GL_LINES, cube_edges.indices.len, c.GL_UNSIGNED_INT, @intToPtr(?*anyopaque, 0));
+
+        c.glfwSwapBuffers(self.window);
     }
 
     fn processInput(self: *Platform) void {
@@ -127,34 +181,34 @@ pub const Platform = struct {
         if (c.glfwGetKey(self.window, c.GLFW_KEY_LEFT_SHIFT) == c.GLFW_PRESS) {
             vel[2] -= 1.0;
         }
-        self.camera.move(m.scaleTo(vel, self.delta_time * 2.0));
+        self.camera.move(m.scaleTo(vel, self.delta_time * movement_speed));
     }
 
-    fn render(self: *Platform) void {
-        c.glClearColor(0.0, 0.0, 0.0, 1.0);
-        c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
-
-        self.triangle.use();
-        c.glBindVertexArray(self.vao);
-
-        self.camera.calcViewProj();
-        self.triangle_mvp.set(self.camera.mvp(.{ .x = 0, .y = 0, .z = 0 }));
-        c.glDrawArrays(c.GL_TRIANGLES, 0, 3);
-
-        c.glfwSwapBuffers(self.window);
+    fn getFromWindow(window: ?*c.GLFWwindow) *Platform {
+        return @ptrCast(*Platform, @alignCast(@alignOf(Platform), c.glfwGetWindowUserPointer(window)));
     }
 
     fn framebufferSizeCallback(window: ?*c.GLFWwindow, size_x: c_int, size_y: c_int) callconv(.C) void {
-        const self = @ptrCast(*Platform, @alignCast(@alignOf(Platform), c.glfwGetWindowUserPointer(window)));
+        const self = getFromWindow(window);
         c.glViewport(0, 0, @as(c.GLsizei, size_x), @as(c.GLsizei, size_y));
         self.camera.aspect_ratio = @intToFloat(f32, size_x) / @intToFloat(f32, size_y);
     }
 
+    fn keyCallback(window: ?*c.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) callconv(.C) void {
+        _ = scancode;
+        _ = mods;
+        const self = getFromWindow(window);
+        const cam_pos = self.camera.pos;
+        if (key == c.GLFW_KEY_E and action == c.GLFW_PRESS) {
+            std.debug.print("({}, {}, {})\n", .{ cam_pos[0], cam_pos[1], cam_pos[2] });
+        }
+    }
+
     fn cursorPosCallback(window: ?*c.GLFWwindow, pos_x: f64, pos_y: f64) callconv(.C) void {
-        const self = @ptrCast(*Platform, @alignCast(@alignOf(Platform), c.glfwGetWindowUserPointer(window)));
+        const self = getFromWindow(window);
         const pos = m.Vec2{ @floatCast(f32, pos_x), @floatCast(f32, pos_y) };
         if (self.cursor_pos) |old_pos| {
-            const rel = (pos - old_pos) * m.Vec2{ -0.01, -0.01 };
+            const rel = (pos - old_pos) * m.splat2(-0.01);
             self.camera.yaw = @mod(self.camera.yaw + rel[0], std.math.tau);
             self.camera.pitch = std.math.clamp(self.camera.pitch + rel[1], -std.math.pi * 0.5, std.math.pi * 0.5);
         }

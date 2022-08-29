@@ -7,6 +7,18 @@ pub const DVec3 = @Vector(3, f32);
 pub const Mat3 = [9]f32;
 pub const Mat4 = [16]f32;
 
+pub fn splat2(x: f32) Vec2 {
+    return @splat(2, x);
+}
+
+pub fn splat3(x: f32) Vec3 {
+    return @splat(3, x);
+}
+
+pub fn splat4(x: f32) Vec4 {
+    return @splat(4, x);
+}
+
 pub fn zero(comptime T: type) T {
     return switch (T) {
         Vec2 => .{ 0, 0 },
@@ -14,6 +26,14 @@ pub fn zero(comptime T: type) T {
         Vec4 => .{ 0, 0, 0, 0 },
         Mat3 => .{0} ** 9,
         Mat4 => .{0} ** 16,
+        else => @compileError("Unsupported type for zero"),
+    };
+}
+
+pub fn identity(comptime T: type) T {
+    return switch (T) {
+        Mat3 => .{ 1, 0, 0, 0 } ** 2 ++ .{1},
+        Mat4 => .{ 1, 0, 0, 0, 0 } ** 3 ++ .{1},
         else => @compileError("Unsupported type for zero"),
     };
 }
@@ -38,9 +58,9 @@ pub fn length(vec: anytype) f32 {
     return @sqrt(lengthSquared(vec));
 }
 
-pub fn scale(vec: anytype, scale_factor: f32) @TypeOf(vec) {
+pub fn scale(vec: anytype, factor: f32) @TypeOf(vec) {
     const dims = @typeInfo(@TypeOf(vec)).Vector.len;
-    return vec * @splat(dims, scale_factor);
+    return vec * @splat(dims, factor);
 }
 
 pub fn scaleTo(vec: anytype, new_length: f32) @TypeOf(vec) {
@@ -83,19 +103,6 @@ pub fn MulType(comptime lhs: type, comptime rhs: type) type {
         Mat4
     else
         @compileError("Unsupported types for MulType");
-}
-
-pub fn mul(lhs: anytype, rhs: anytype) MulType(@TypeOf(lhs), @TypeOf(rhs)) {
-    return if (@TypeOf(lhs) == Mat3 and @TypeOf(rhs) == Vec3)
-        mat3.mulVec(lhs, rhs)
-    else if (@TypeOf(lhs) == Mat3 and @TypeOf(rhs) == Mat3)
-        mat3.mulMat(lhs, rhs)
-    else if (@TypeOf(lhs) == Mat4 and @TypeOf(rhs) == Vec4)
-        mat4.mulVec(lhs, rhs)
-    else if (@TypeOf(lhs) == Mat4 and @TypeOf(rhs) == Mat4)
-        mat4.mulMat(lhs, rhs)
-    else
-        @compileError("Unsupported types for mul");
 }
 
 pub const mat3 = struct {
@@ -189,9 +196,9 @@ pub const transform = struct {
         const cam_y = Vec3{ -cos_yaw * sin_pitch, -sin_yaw * sin_pitch, cos_pitch }; // up
         const cam_z = Vec3{ -cos_yaw * cos_pitch, -sin_yaw * cos_pitch, -sin_pitch }; // backwards
         return .{
-            cam_x[0], cam_x[1], cam_x[2], dot(cam_x, pos),
-            cam_y[0], cam_y[1], cam_y[2], dot(cam_y, pos),
-            cam_z[0], cam_z[1], cam_z[2], dot(cam_z, pos),
+            cam_x[0], cam_x[1], cam_x[2], -dot(cam_x, pos),
+            cam_y[0], cam_y[1], cam_y[2], -dot(cam_y, pos),
+            cam_z[0], cam_z[1], cam_z[2], -dot(cam_z, pos),
             0.0,      0.0,      0.0,      1.0,
         };
     }
@@ -202,6 +209,15 @@ pub const transform = struct {
             0.0, 1.0, 0.0, y,
             0.0, 0.0, 1.0, z,
             0.0, 0.0, 0.0, 1.0,
+        };
+    }
+
+    pub fn dilation(factor: f32) Mat4 {
+        return .{
+            factor, 0.0,    0.0,    0.0,
+            0.0,    factor, 0.0,    0.0,
+            0.0,    0.0,    factor, 0.0,
+            0.0,    0.0,    0.0,    1.0,
         };
     }
 };

@@ -1,4 +1,4 @@
-const m = @import("root").linmath;
+const m = @import("../linmath.zig");
 
 pub const ChunkIndex = packed struct {
     x: u5,
@@ -14,17 +14,25 @@ pub const ChunkIndex = packed struct {
     }
 };
 
-pub const ChunkCoord = packed struct {
+pub const ChunkCoord = struct {
     x: i27,
     y: i27,
     z: i27,
 
-    pub fn center(self: ChunkCoord) m.DVec3 {
+    pub fn minBound(self: ChunkCoord) m.DVec3 {
         return .{
-            @intToFloat(f64, self.x << 5 | 16),
-            @intToFloat(f64, self.y << 5 | 16),
-            @intToFloat(f64, self.z << 5 | 16),
-        };
+            @intToFloat(f64, self.x),
+            @intToFloat(f64, self.y),
+            @intToFloat(f64, self.z),
+        } * m.splat3(32.0);
+    }
+
+    pub fn maxBound(self: ChunkCoord) m.DVec3 {
+        return self.minBound() + m.splat3(32.0);
+    }
+
+    pub fn center(self: ChunkCoord) m.DVec3 {
+        return self.minBound() + m.splat3(16.0);
     }
 };
 
@@ -35,9 +43,9 @@ pub const VoxelCoord = struct {
 
     pub fn fromChunkCoord(chunk_coord: ChunkCoord, chunk_index: ChunkIndex) VoxelCoord {
         return .{
-            .x = chunk_coord.x << 5 | chunk_index.x,
-            .y = chunk_coord.y << 5 | chunk_index.y,
-            .z = chunk_coord.z << 5 | chunk_index.z,
+            .x = @as(i32, chunk_coord.x) << 5 | chunk_index.x,
+            .y = @as(i32, chunk_coord.y) << 5 | chunk_index.y,
+            .z = @as(i32, chunk_coord.z) << 5 | chunk_index.z,
         };
     }
 
@@ -57,15 +65,15 @@ pub const VoxelCoord = struct {
         };
     }
 
-    pub fn center(self: VoxelCoord) m.DVec3 {
+    pub fn center(self: ChunkCoord) m.DVec3 {
         return .{
             @intToFloat(f64, self.x),
             @intToFloat(f64, self.y),
             @intToFloat(f64, self.z),
-        } + @splat(3, 0.5);
+        };
     }
 
-    pub fn dist(self: VoxelCoord, other: VoxelCoord) f64 {
+    pub fn distance(self: VoxelCoord, other: VoxelCoord) f64 {
         return m.length(self.center() - other.center());
     }
 };

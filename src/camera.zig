@@ -1,5 +1,7 @@
-const m = @import("root").linmath;
-const ChunkCoord = @import("root").voxel.ChunkCoord;
+const m = @import("linmath.zig");
+const ChunkCoord = @import("voxel/coord.zig").ChunkCoord;
+
+var t = 0;
 
 pub const Camera = struct {
     fov_y: f32,
@@ -24,6 +26,14 @@ pub const Camera = struct {
         const y = @intToFloat(f32, (chunk_coord.y - self.root.y) << 5);
         const z = @intToFloat(f32, (chunk_coord.z - self.root.z) << 5);
         const model = m.transform.translation(x, y, z);
+        return m.mat4.mulMat(self.view_proj, model);
+    }
+
+    pub fn innerChunkMvp(self: *Camera) m.Mat4 {
+        const x = self.pos[0] - @mod(self.pos[0], 32.0);
+        const y = self.pos[1] - @mod(self.pos[1], 32.0);
+        const z = self.pos[2] - @mod(self.pos[2], 32.0);
+        const model = m.mat4.mulMat(m.transform.translation(x, y, z), m.transform.dilation(32.0));
         return m.mat4.mulMat(self.view_proj, model);
     }
 

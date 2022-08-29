@@ -1,4 +1,4 @@
-pub const Voxel = @import("root").voxel.Voxel;
+pub const Voxel = @import("../voxel.zig").Voxel;
 
 pub const edge_len = 32;
 pub const face_area = 32 * 32;
