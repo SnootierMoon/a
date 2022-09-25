@@ -7,9 +7,11 @@ pub const volume = 32 * 32 * 32;
 pub const Chunk = struct {
     voxels: [volume]Voxel,
 
-    fn initEmpty() Chunk {
+    pub fn initEmpty() Chunk {
         return .{
             .voxels = [_]Voxel{Voxel.air} ** volume,
         };
     }
+
+    pub fn initSphere() Chunk {}
 };

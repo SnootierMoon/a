@@ -1,3 +1,4 @@
+const std = @import("std");
 const m = @import("../linmath.zig");
 
 pub const ChunkIndex = packed struct {
@@ -5,12 +6,30 @@ pub const ChunkIndex = packed struct {
     y: u5,
     z: u5,
 
-    pub fn fromNum(num: u15) ChunkIndex {
-        return @bitCast(ChunkIndex, num);
+    pub fn initNum(n: u15) ChunkIndex {
+        return @bitCast(ChunkIndex, n);
     }
 
-    pub fn toNum(self: ChunkIndex) usize {
+    pub fn num(self: ChunkIndex) usize {
         return @bitCast(u15, self);
+    }
+
+    const Iterator = struct {
+        it: ?u15,
+        pub fn next(self: *Iterator) ?ChunkIndex {
+            if (self.it == null) {
+                self.it = 0;
+            } else if (self.it == std.math.maxInt(u15)) {
+                return null;
+            } else {
+                self.it += 1;
+            }
+            return ChunkIndex.initNum(self.it);
+        }
+    };
+
+    pub fn iter() Iterator {
+        return .{ .it = null };
     }
 };
 
@@ -41,7 +60,7 @@ pub const VoxelCoord = struct {
     y: i32,
     z: i32,
 
-    pub fn fromChunkCoord(chunk_coord: ChunkCoord, chunk_index: ChunkIndex) VoxelCoord {
+    pub fn initChunkCoord(chunk_coord: ChunkCoord, chunk_index: ChunkIndex) VoxelCoord {
         return .{
             .x = @as(i32, chunk_coord.x) << 5 | chunk_index.x,
             .y = @as(i32, chunk_coord.y) << 5 | chunk_index.y,

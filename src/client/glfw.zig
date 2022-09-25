@@ -1,15 +1,15 @@
 const std = @import("std");
 const m = @import("../linmath.zig");
 const Camera = @import("../camera.zig").Camera;
-pub const cube_edges = @import("../voxel/mesh.zig").cube_edges;
-pub const c = @cImport({
+const cube_edges = @import("../voxel/mesh.zig").cube_edges;
+const c = @cImport({
     @cInclude("glad/glad.h");
     @cInclude("GLFW/glfw3.h");
 });
 
-pub const win_width = 800;
-pub const win_height = 600;
-pub const movement_speed = 10.0;
+const win_width = 800;
+const win_height = 600;
+const movement_speed = 10.0;
 
 const log = std.log.scoped(.glfw);
 
@@ -19,8 +19,9 @@ pub const Platform = struct {
     window: *c.GLFWwindow,
 
     voxel_shader: Shader,
-    voxel_vao: c.GLuint,
     voxel_uniform_mvp: Shader.Uniform(m.Mat4),
+    voxel_vbo: c.GLuint,
+    voxel_vao: c.GLuint,
 
     cursor_pos: ?m.Vec2,
     current_time: f32,
@@ -28,9 +29,9 @@ pub const Platform = struct {
 
     cube_mesh_shader: Shader,
     cube_mesh_uniform_mvp: Shader.Uniform(m.Mat4),
-    cube_mesh_vao: c.GLuint,
     cube_mesh_vbo: c.GLuint,
     cube_mesh_ebo: c.GLuint,
+    cube_mesh_vao: c.GLuint,
 
     camera: Camera,
 
@@ -71,26 +72,31 @@ pub const Platform = struct {
         c.glEnable(c.GL_DEPTH_TEST);
         c.glEnable(c.GL_CULL_FACE);
 
+        var xbos = @as([3]c.GLuint, undefined);
+        c.glGenBuffers(xbos.len, &xbos);
+        errdefer c.glDeleteBuffers(xbos.len, &xbos);
+
         var vaos = @as([2]c.GLuint, undefined);
         c.glGenVertexArrays(vaos.len, &vaos);
         errdefer c.glDeleteVertexArrays(vaos.len, &vaos);
 
-        var xbos = @as([2]c.GLuint, undefined);
-        c.glGenBuffers(xbos.len, &xbos);
-        errdefer c.glDeleteBuffers(xbos.len, &xbos);
-
         self.voxel_shader = try Shader.init(allocator, "voxel");
         errdefer self.voxel_shader.deinit();
-        self.voxel_vao = vaos[0];
         self.voxel_uniform_mvp = self.voxel_shader.getUniform(m.Mat4, "mvp");
+        self.voxel_vbo = xbos[0];
+
+        self.voxel_vao = vaos[0];
+        c.glBindVertexArray(self.cube_mesh_vao);
+        c.glVertexAttribIPointer(0, 1, c.GL_UNSIGNED_INT, @sizeOf(u32), @intToPtr(?*anyopaque, 0));
+        c.glEnableVertexAttribArray(0);
 
         self.cube_mesh_shader = try Shader.init(allocator, "cube_mesh");
         errdefer self.cube_mesh_shader.deinit();
         self.cube_mesh_uniform_mvp = self.cube_mesh_shader.getUniform(m.Mat4, "mvp");
-        self.cube_mesh_vbo = xbos[0];
+        self.cube_mesh_vbo = xbos[1];
         c.glBindBuffer(c.GL_ARRAY_BUFFER, self.cube_mesh_vbo);
         c.glBufferData(c.GL_ARRAY_BUFFER, @sizeOf(@TypeOf(cube_edges.verts)), &cube_edges.verts, c.GL_STATIC_DRAW);
-        self.cube_mesh_ebo = xbos[1];
+        self.cube_mesh_ebo = xbos[2];
         c.glBindBuffer(c.GL_ELEMENT_ARRAY_BUFFER, self.cube_mesh_ebo);
         c.glBufferData(c.GL_ELEMENT_ARRAY_BUFFER, @sizeOf(@TypeOf(cube_edges.indices)), &cube_edges.indices, c.GL_STATIC_DRAW);
         self.cube_mesh_vao = vaos[1];
@@ -113,7 +119,7 @@ pub const Platform = struct {
     }
 
     pub fn deinit(self: *const Platform) void {
-        const xbos = [_]c.GLuint{ self.cube_mesh_vbo, self.cube_mesh_ebo };
+        const xbos = [_]c.GLuint{ self.voxel_vbo, self.cube_mesh_vbo, self.cube_mesh_ebo };
         const vaos = [_]c.GLuint{ self.cube_mesh_vao, self.voxel_vao };
         c.glDeleteBuffers(xbos.len, &xbos);
         c.glDeleteVertexArrays(vaos.len, &vaos);
@@ -232,7 +238,7 @@ pub const Platform = struct {
 const Shader = struct {
     program: c.GLuint,
 
-    pub fn init(allocator: std.mem.Allocator, comptime name: []const u8) !Shader {
+    fn init(allocator: std.mem.Allocator, comptime name: []const u8) !Shader {
         const vert_path = "shaders/" ++ name ++ "_vs.glsl";
         const frag_path = "shaders/" ++ name ++ "_fs.glsl";
         const vert_src = @embedFile(vert_path);
@@ -243,15 +249,15 @@ const Shader = struct {
         };
     }
 
-    pub fn deinit(self: Shader) void {
+    fn deinit(self: Shader) void {
         c.glDeleteProgram(self.program);
     }
 
-    pub fn use(self: Shader) void {
+    fn use(self: Shader) void {
         c.glUseProgram(self.program);
     }
 
-    pub fn Uniform(comptime T: type) type {
+    fn Uniform(comptime T: type) type {
         return struct {
             location: c.GLint,
 
@@ -265,7 +271,7 @@ const Shader = struct {
         };
     }
 
-    pub fn getUniform(self: Shader, comptime T: type, name: [*:0]const u8) Uniform(T) {
+    fn getUniform(self: Shader, comptime T: type, name: [*:0]const u8) Uniform(T) {
         return .{
             .location = c.glGetUniformLocation(self.program, name),
         };
